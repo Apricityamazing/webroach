@@ -2,36 +2,78 @@ use reqwest::blocking;
 use scraper::{Html, Selector};
 use std::collections::HashSet;
 
-fn main() {
-    let html = blocking::get("https://www.rust-lang.org")
-        .unwrap()
-        .text()
-        .unwrap();
-    let document = Html::parse_document(&html);
-    let selector = Selector::parse("a").unwrap();
+fn crawl_layer(
+    selector: &Selector,
+    current_layer: &mut HashSet<String>,
+    visited: &mut HashSet<String>,
+) -> HashSet<String> {
+    let mut next_layer = HashSet::new();
+    if current_layer.is_empty() {
+        current_layer.insert("https://www.rust-lang.org".to_string());
+    }
+    for url in current_layer.iter() {
+        if url.ends_with(".exe")
+            || url.ends_with(".tar.gz")
+            || url.ends_with(".tar.xz")
+            || url.ends_with(".sh")
+            || url.ends_with(".msi")
+            || url.ends_with(".zip")
+            || url.ends_with(".pkg")
+        {
+            println!("Skipping binary asset {url}");
+            continue;
+        }
+        println!("Crawling {}", url);
+        let response = match blocking::get(url) {
+            Ok(resp) => resp,
+            Err(err) => {
+                eprintln!("Error crawling {}: {}", err, url);
+                continue;
+            }
+        };
 
-    let mut remote = HashSet::new();
-    let mut local = HashSet::new();
-    for element in document.select(&selector) {
-        let href = element.value().attr("href");
-        if let Some(url) = href {
-            if url.starts_with("/") {
-                local.insert(format!("https://www.rust-lang.org{url}"));
-            } else if url.starts_with("http") {
-                if url.contains("rust-lang.org") {
-                    local.insert(url.to_string());
-                } else {
-                    remote.insert(url.to_string());
+        let html = match response.text() {
+            Ok(res) => res,
+            Err(err) => {
+                eprintln!("Error decoding the response: {}", err);
+                continue;
+            }
+        };
+
+        let document = Html::parse_document(&html);
+        for link in document.select(selector) {
+            let href = link.value().attr("href");
+            if let Some(url) = href {
+                let new_url = format!("https://www.rust-lang.org{url}");
+                if url.starts_with("/") && visited.insert(new_url.clone()) {
+                    next_layer.insert(new_url);
+                } else if url.starts_with("http") && url.contains("rust-lang.org") {
+                    next_layer.insert(url.to_string());
                 }
             }
         }
     }
-    println!("Amount of local links: {}", local.len());
-    for link in local.iter() {
-        println!("{link}");
+    next_layer
+}
+fn main() {
+    let selector = Selector::parse("a").unwrap();
+
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut current_layer = HashSet::new();
+    let mut next_layer = HashSet::new();
+
+    for i in 1..4 {
+        if i == 1 {
+            println!("Starting layer 1");
+            next_layer = crawl_layer(&selector, &mut current_layer, &mut visited)
+        } else {
+            println!("Starting layer {i}");
+            visited.extend(current_layer.drain());
+            current_layer.extend(next_layer.drain());
+            next_layer = crawl_layer(&selector, &mut current_layer, &mut visited);
+        }
     }
-    println!("Amount of remote links: {}", remote.len());
-    for link in remote.iter() {
-        println!("{link}");
+    for link in visited.iter() {
+        println!("{link}")
     }
 }

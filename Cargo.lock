@@ -3,14 +3,6 @@
 version = 4
 
 [[package]]
-name = "Webroach"
-version = "0.1.0"
-dependencies = [
- "reqwest",
- "scraper",
-]
-
-[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1539,6 +1531,14 @@ checksum = "8622dcb61c0bcc9fffa6938bed81210af2da9a7e4a1a834b2e37a59b6dfb6141"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "webroach"
+version = "0.1.0"
+dependencies = [
+ "reqwest",
+ "scraper",
 ]
 
 [[package]]
