@@ -45,9 +45,15 @@ fn crawl_layer(
             let href = link.value().attr("href");
             if let Some(url) = href {
                 let new_url = format!("https://www.rust-lang.org{url}");
+                // These visited.insert statements check if the url has already been visited
+                // because visited.insert returns a boolean depending on if the url has already been
+                // added to the visited hashmap
                 if url.starts_with("/") && visited.insert(new_url.clone()) {
                     next_layer.insert(new_url);
-                } else if url.starts_with("http") && url.contains("rust-lang.org") {
+                } else if url.starts_with("http")
+                    && url.contains("rust-lang.org")
+                    && visited.insert(new_url.clone())
+                {
                     next_layer.insert(url.to_string());
                 }
             }
@@ -67,6 +73,7 @@ fn main() {
             println!("Starting layer 1");
             next_layer = crawl_layer(&selector, &mut current_layer, &mut visited)
         } else {
+            // The first layer doesn't need to extend the visited and current_layer HashSets
             println!("Starting layer {i}");
             visited.extend(current_layer.drain());
             current_layer.extend(next_layer.drain());
